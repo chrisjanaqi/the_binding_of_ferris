@@ -1,35 +1,58 @@
 mod behaviors;
 mod components;
+mod factories;
+mod model;
+mod rendering;
+mod systems;
 
-use ggez::conf::{Conf, NumSamples};
-use ggez::graphics::Rect;
+use crate::components::*;
+use crate::model::*;
+use crate::rendering::*;
+
 use ggez::nalgebra as na;
-use ggez::{
-    event::{self, EventHandler},
-    graphics,
-    timer::{delta, fps},
-    Context, ContextBuilder, GameResult,
-};
-use legion::{Resources, Schedule, World};
+use ggez::{conf::*, event::*, graphics::*, timer::*, *};
+use legion::*;
 
 type Point = na::Point2<f32>;
 // type Vector = na::Vector2<f32>;
+
+struct DeltaTime(f32);
 
 struct Isaac {
     world: World,
     schedule: Schedule,
     resources: Resources,
-    dt: f32,
 }
 
 impl Isaac {
-    pub fn new(_ctx: &mut Context) -> Self {
+    pub fn new(ctx: &mut Context) -> Self {
         let schedule = Schedule::builder().build();
+        let mut resources = Resources::default();
+        resources.insert(DeltaTime(0.0));
+        resources.insert(PlayerMesh(
+            MeshBuilder::new()
+                .circle(
+                    DrawMode::stroke(2.0),
+                    Point::new(200.0, 200.0),
+                    20.0,
+                    0.1,
+                    Color::from_rgb(52, 152, 219),
+                )
+                .build(ctx)
+                .expect("Could not create player mesh"),
+        ));
+        let mut world = World::default();
+        world.push((
+            Translation::default(),
+            Velocity::default(),
+            Size(1.0),
+            Rotation(0.0.into()),
+            TagPlayer,
+        ));
         Isaac {
-            world: World::default(),
+            world,
             schedule,
-            resources: Resources::default(),
-            dt: 0.0,
+            resources,
         }
     }
 }
@@ -37,31 +60,29 @@ impl Isaac {
 impl EventHandler for Isaac {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         let dt = delta(ctx).as_secs_f32();
-        self.dt = dt;
+        self.resources.insert(DeltaTime(dt));
         self.schedule.execute(&mut self.world, &mut self.resources);
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        graphics::clear(ctx, graphics::BLACK);
+        clear(ctx, BLACK);
 
-        graphics::draw(
-            ctx,
-            &graphics::Text::new(format!("{:.0}", fps(ctx))),
-            (Point::new(20.0, 20.0),),
-        )?;
-        let screen = graphics::screen_coordinates(ctx);
-        graphics::draw(
-            ctx,
-            &graphics::Text::new(format!("{:?}", screen)),
-            (Point::new(20.0, 60.0),),
-        )?;
-        graphics::present(ctx)
+        let fps = Text::new(format!("{:.0} FPS", fps(ctx)));
+        let resolution = {
+            let screen = screen_coordinates(ctx);
+            Text::new(format!("{}x{}", screen.w, screen.h))
+        };
+        draw(ctx, &fps, (Point::new(20.0, 20.0),))?;
+        draw(ctx, &resolution, (Point::new(20.0, 45.0),))?;
+
+        render_player(ctx, &mut self.world, &mut self.resources)?;
+        present(ctx)
     }
 
     fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
         println!("Resized screen to {}, {}", width, height);
-        graphics::set_screen_coordinates(ctx, Rect::new(0.0, 0.0, width, height))
+        set_screen_coordinates(ctx, Rect::new(0.0, 0.0, width, height))
             .expect("Cannot resize screen");
     }
 }
@@ -81,8 +102,8 @@ fn main() -> GameResult<()> {
 
     let mut game = Isaac::new(&mut ctx);
     match event::run(&mut ctx, &mut event_loop, &mut game) {
-        Ok(_) => println!("Exited cleanly."),
         Err(e) => println!("Error occurred: {}", e),
+        _ => {}
     }
     Ok(())
 }
