@@ -1,20 +1,19 @@
-mod behaviors;
 mod components;
-mod inputs;
 mod model;
 mod rendering;
 mod systems;
 mod utils;
 
 // use crate::components::*;
-use crate::inputs::*;
 use crate::model::*;
 use crate::rendering::*;
 use crate::systems::*;
 use crate::utils::*;
 
-use ggez::{conf::*, event::*, graphics::*, timer::*, *};
+use ggez::{event::*, graphics::*, timer::*, *};
 use legion::*;
+use log::debug;
+use std::path::PathBuf;
 
 struct Isaac {
     world: World,
@@ -28,12 +27,15 @@ impl Isaac {
             .add_system(player_input_system())
             .add_system(moving_system())
             .add_system(linear_simulation_system())
+            .add_system(world_to_camera_system())
+            .add_system(camera_to_screen_system())
             .build();
         let mut resources = Resources::default();
         resources.insert(DeltaTime(0.0));
         resources.insert(PlayerMesh::new(ctx));
         resources.insert(Inputs::default());
         resources.insert(KeyBindings::default());
+        resources.insert(Camera::default());
         let mut world = World::default();
         world.push(Player::default());
         Isaac {
@@ -65,7 +67,14 @@ impl EventHandler for Isaac {
             let screen = screen_coordinates(ctx);
             Text::new(format!("{}x{}", screen.w, screen.h))
         };
-        draw(ctx, &fps, (Point::new(20.0, 20.0),))?;
+        draw(
+            ctx,
+            &fps,
+            DrawParam {
+                dest: [20.0, 20.0].into(),
+                ..Default::default()
+            },
+        )?;
         draw(ctx, &resolution, (Point::new(20.0, 45.0),))?;
 
         render_player(ctx, &mut self.world, &mut self.resources)?;
@@ -73,23 +82,31 @@ impl EventHandler for Isaac {
     }
 
     fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
-        println!("Resized screen to {}, {}", width, height);
-        set_screen_coordinates(ctx, Rect::new(0.0, 0.0, width, height))
-            .expect("Cannot resize screen");
+        debug!("Resized screen to {}, {}", width, height);
+        let aspect_ratio = width / height;
+
+        let target_height = 1080.0;
+        let target_width = 1920.0;
+        let vstrip = (Camera::WIDTH / aspect_ratio - target_height).max(0.0);
+        let hstrip = (Camera::HEIGHT * aspect_ratio - target_width).max(0.0);
+
+        let rect = Rect::new(
+            -hstrip * 0.5,
+            -vstrip * 0.5,
+            Camera::WIDTH + hstrip,
+            Camera::HEIGHT + vstrip,
+        );
+        set_screen_coordinates(ctx, rect).expect("Cannot resize screen");
     }
 }
 
 fn main() -> GameResult<()> {
-    // Make a Context and an EventLoop.
-    let conf = Conf::new();
+    env_logger::init();
+    let resources =
+        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default()).join("resources");
+
     let (mut ctx, mut event_loop) = ContextBuilder::new("isaac-tears", "ergo_games")
-        .window_setup(
-            conf.window_setup
-                .title("Isaac's tears")
-                .vsync(true)
-                .samples(NumSamples::Four),
-        )
-        .window_mode(conf.window_mode.dimensions(1280.0, 720.0).resizable(true))
+        .add_resource_path(&resources)
         .build()?;
 
     let mut game = Isaac::new(&mut ctx);

@@ -1,6 +1,6 @@
 use crate::components::*;
-use crate::model::PlayerMesh;
-use crate::Point;
+use crate::model::*;
+use crate::utils::*;
 
 use ggez::{graphics::*, Context, GameResult};
 use legion::*;
@@ -10,18 +10,20 @@ pub fn render_player(
     world: &mut World,
     resources: &mut Resources,
 ) -> GameResult<()> {
-    let mut query: _ = <(&Translation, &Rotation, &Size, &TagPlayer)>::query();
+    let mut query: _ = <(&WorldToScreen, &TagPlayer)>::query();
     let mesh = &resources.get::<PlayerMesh>().unwrap().0;
     query
         .iter(world)
-        .map(|(translation, rotation, size, _)| {
+        .map(|(transform, _)| {
+            let size = transform.s;
             let params = DrawParam {
-                dest: translation.0.into(),
-                rotation: rotation.0.into(),
-                scale: [size.0, size.0].into(),
+                dest: transform.t.into(),
+                rotation: transform.r.0.into(),
+                scale: [size, size].into(),
+                offset: [0.5, 0.5].into(),
                 ..DrawParam::default()
             };
-            let pos = Text::new(format!("Pos: [{},{}]", translation.0.x, translation.0.y));
+            let pos = Text::new(format!("Pos({:.1}, {:.1})", transform.t.x, transform.t.y));
             draw(ctx, mesh, params)?;
             draw(ctx, &pos, (Point::new(20.0, 70.0),))
         })
