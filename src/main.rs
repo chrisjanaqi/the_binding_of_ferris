@@ -26,13 +26,17 @@ impl Isaac {
         let schedule = Schedule::builder()
             .add_system(player_input_system())
             .add_system(moving_system())
+            .add_system(shooting_system())
             .add_system(linear_simulation_system())
+            .add_system(angular_simulation_system())
+            .add_system(lifetime_system())
             .add_system(world_to_camera_system())
             .add_system(camera_to_screen_system())
             .build();
         let mut resources = Resources::default();
         resources.insert(DeltaTime(0.0));
         resources.insert(PlayerMesh::new(ctx));
+        resources.insert(TearMesh::new(ctx));
         resources.insert(Inputs::default());
         resources.insert(KeyBindings::default());
         resources.insert(Camera::default());
@@ -76,9 +80,21 @@ impl EventHandler for Isaac {
             },
         )?;
         draw(ctx, &resolution, (Point::new(20.0, 45.0),))?;
-
+        render_tears(ctx, &mut self.world, &mut self.resources)?;
         render_player(ctx, &mut self.world, &mut self.resources)?;
         present(ctx)
+    }
+
+    fn mouse_motion_event(&mut self, ctx: &mut Context, _: f32, _: f32, dx: f32, dy: f32) {
+        if input::mouse::button_pressed(ctx, MouseButton::Left) {
+            let mut camera = self.resources.get_mut::<Camera>().unwrap();
+            camera.position.x += dx / Camera::WIDTH;
+            camera.position.y += dy / Camera::WIDTH;
+        }
+    }
+
+    fn mouse_wheel_event(&mut self, _ctx: &mut Context, _: f32, y: f32) {
+        self.resources.get_mut::<Camera>().unwrap().zoom *= (y * 0.5).exp();
     }
 
     fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {

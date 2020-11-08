@@ -30,7 +30,24 @@ pub fn clamp_norm(v: Vector, max: f32) -> Vector {
     }
 }
 
-pub fn input_to_vector(up: bool, down: bool, left: bool, right: bool) -> Vector {
+pub fn normalize(v: Vector) -> Vector {
+    let norm = v.norm();
+    if norm >= std::f32::EPSILON {
+        v.normalize()
+    } else {
+        v
+    }
+}
+
+pub fn angle(v: Vector) -> Radian {
+    Radian(v.y.atan2(v.x))
+}
+
+pub fn input_to_vector(input: &Vec<bool>) -> Vector {
+    let up = input[0];
+    let down = input[1];
+    let left = input[2];
+    let right = input[3];
     let x = (right as i32 - left as i32) as f32;
     let y = (down as i32 - up as i32) as f32;
     Vector::new(x, y)

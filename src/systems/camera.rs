@@ -13,8 +13,8 @@ pub fn world_to_camera(
     let (sin, cos) = camera.rotation.0.sin_cos();
     w2s.s = size.0 * camera.zoom;
     w2s.r.0 = rotation.0.0 + camera.rotation.0;
-    w2s.t.x = cos * translation.0.x - sin * translation.0.y + camera.position.x;
-    w2s.t.y = sin * translation.0.x + cos * translation.0.y + camera.position.y;
+    w2s.t.x = camera.zoom * cos * translation.0.x - sin * translation.0.y + camera.position.x;
+    w2s.t.y = sin * translation.0.x + camera.zoom * cos * translation.0.y + camera.position.y;
 }
 
 #[system(for_each)]

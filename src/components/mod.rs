@@ -1,8 +1,10 @@
 mod physics;
 mod player;
+mod tears;
 
 pub use physics::*;
 pub use player::*;
+pub use tears::*;
 
 use crate::utils::*;
 
@@ -12,6 +14,9 @@ pub struct WorldToScreen {
     pub r: Radian,
     pub s: f32,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct Lifetime(pub f32);
 
 impl Default for WorldToScreen {
     fn default() -> Self {

@@ -7,7 +7,6 @@ use legion::*;
 pub fn moving(
     movement: &Movement,
     velocity: &mut Velocity,
-    rotation: &mut Rotation,
     #[resource] delta: &DeltaTime,
 ) {
     let DeltaTime(dt) = *delta;
@@ -30,10 +29,6 @@ pub fn moving(
             current + coeff * dt / norm * error
         };
     }
-
-    if moving {
-        rotation.0.0 = velocity.0.y.atan2(velocity.0.x);
-    }
 }
 
 #[system(for_each)]
@@ -44,4 +39,14 @@ pub fn linear_simulation(
 ) {
     let DeltaTime(dt) = *delta;
     translation.0 += velocity.0 * dt;
+}
+
+#[system(for_each)]
+pub fn angular_simulation(
+    rotation: &mut Rotation,
+    velocity: &AngularVelocity,
+    #[resource] delta: &DeltaTime,
+) {
+    let DeltaTime(dt) = *delta;
+    rotation.0.0 += velocity.0.0 * dt;
 }

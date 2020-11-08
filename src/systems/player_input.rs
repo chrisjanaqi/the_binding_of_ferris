@@ -6,19 +6,36 @@ use legion::*;
 
 #[system(for_each)]
 pub fn player_input(
-    player_movement: &mut Movement,
+    movement: &mut Movement,
+    action: &mut PlayerAction,
+    rotation: &mut Rotation,
     _: &TagPlayer,
     #[resource] inputs: &Inputs,
     #[resource] bindings: &KeyBindings,
 ) {
     let kb = &inputs.keyboard;
-    let movement: Vec<_> = vec![bindings.up, bindings.down, bindings.left, bindings.right]
+    let directions: Vec<_> = vec![bindings.up, bindings.down, bindings.left, bindings.right]
         .into_iter()
         .map(|key| kb.pressed(key))
         .collect();
+    let moving = directions.iter().any(|b| *b);
+    movement.direction = clamp_norm(input_to_vector(&directions), 1.0);
 
-    player_movement.direction = clamp_norm(
-        input_to_vector(movement[0], movement[1], movement[2], movement[3]),
-        1.0,
-    );
+    let shoot: Vec<_> = vec![
+        bindings.shoot_up,
+        bindings.shoot_down,
+        bindings.shoot_left,
+        bindings.shoot_right,
+    ]
+    .into_iter()
+    .map(|key| kb.pressed(key))
+    .collect();
+    let shooting = shoot.iter().any(|b| *b);
+    action.shoot = normalize(input_to_vector(&shoot));
+
+    if shooting {
+        rotation.0 = angle(action.shoot);
+    } else if moving {
+        rotation.0 = angle(movement.direction);
+    }
 }
