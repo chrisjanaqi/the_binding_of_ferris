@@ -1,133 +1,157 @@
-mod components;
-mod model;
-mod rendering;
-mod systems;
-mod utils;
+mod inputs;
 
-// use crate::components::*;
-use crate::model::*;
-use crate::rendering::*;
-use crate::systems::*;
-use crate::utils::*;
+use crate::inputs::*;
+use bevy::{input::system::exit_on_esc_system, prelude::*};
 
-use ggez::{event::*, graphics::*, timer::*, *};
-use legion::*;
-use log::debug;
-use std::path::PathBuf;
-
-struct Isaac {
-    world: World,
-    schedule: Schedule,
-    resources: Resources,
+use crate::inputs::Direction;
+// use std::path::PathBuf;
+struct Materials {
+    pub player: Handle<ColorMaterial>,
 }
 
-impl Isaac {
-    pub fn new(ctx: &mut Context) -> Self {
-        let schedule = Schedule::builder()
-            .add_system(player_input_system())
-            .add_system(moving_system())
-            .add_system(shooting_system())
-            .add_system(linear_simulation_system())
-            .add_system(angular_simulation_system())
-            .add_system(lifetime_system())
-            .add_system(world_to_camera_system())
-            .add_system(camera_to_screen_system())
-            .build();
-        let mut resources = Resources::default();
-        resources.insert(DeltaTime(0.0));
-        resources.insert(PlayerMesh::new(ctx));
-        resources.insert(TearMesh::new(ctx));
-        resources.insert(Inputs::default());
-        resources.insert(KeyBindings::default());
-        resources.insert(Camera::default());
-        let mut world = World::default();
-        world.push(Player::default());
-        Isaac {
-            world,
-            schedule,
-            resources,
-        }
+struct IsaacInit;
+
+impl IsaacInit {
+    const STAGE: &'static str = "game_setup";
+
+    fn materials(
+        mut commands: Commands,
+        asset_server: Res<AssetServer>,
+        mut materials: ResMut<Assets<ColorMaterial>>,
+    ) {
+        let player_texture = asset_server.load("player.png");
+        commands.insert_resource(Materials {
+            player: materials.add(player_texture.into()),
+        });
     }
 
-    fn update_inputs(&mut self, ctx: &Context) {
-        self.resources.get_mut_or_default::<Inputs>().update(ctx);
-    }
-}
-
-impl EventHandler for Isaac {
-    fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
-        let dt = delta(ctx).as_secs_f32();
-        self.update_inputs(ctx);
-        self.resources.insert(DeltaTime(dt));
-        self.schedule.execute(&mut self.world, &mut self.resources);
-        Ok(())
+    fn camera(mut commands: Commands) {
+        commands.spawn(Camera2dComponents::default());
     }
 
-    fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        clear(ctx, Color::from_rgb(33, 33, 33));
-
-        let fps = Text::new(format!("{:.0} FPS", fps(ctx)));
-        let resolution = {
-            let screen = screen_coordinates(ctx);
-            Text::new(format!("{}x{}", screen.w, screen.h))
-        };
-        draw(
-            ctx,
-            &fps,
-            DrawParam {
-                dest: [20.0, 20.0].into(),
+    fn player(mut commands: Commands, mats: Res<Materials>) {
+        commands
+            .spawn(SpriteComponents {
+                material: mats.player.clone(),
                 ..Default::default()
-            },
-        )?;
-        draw(ctx, &resolution, (Point::new(20.0, 45.0),))?;
-        render_tears(ctx, &mut self.world, &mut self.resources)?;
-        render_player(ctx, &mut self.world, &mut self.resources)?;
-        present(ctx)
-    }
-
-    fn mouse_motion_event(&mut self, ctx: &mut Context, _: f32, _: f32, dx: f32, dy: f32) {
-        if input::mouse::button_pressed(ctx, MouseButton::Left) {
-            let mut camera = self.resources.get_mut::<Camera>().unwrap();
-            camera.position.x += dx / Camera::WIDTH;
-            camera.position.y += dy / Camera::WIDTH;
-        }
-    }
-
-    fn mouse_wheel_event(&mut self, _ctx: &mut Context, _: f32, y: f32) {
-        self.resources.get_mut::<Camera>().unwrap().zoom *= (y * 0.5).exp();
-    }
-
-    fn resize_event(&mut self, ctx: &mut Context, width: f32, height: f32) {
-        debug!("Resized screen to {}, {}", width, height);
-        let aspect_ratio = width / height;
-
-        let target_height = 1080.0;
-        let target_width = 1920.0;
-        let vstrip = (Camera::WIDTH / aspect_ratio - target_height).max(0.0);
-        let hstrip = (Camera::HEIGHT * aspect_ratio - target_width).max(0.0);
-
-        let rect = Rect::new(
-            -hstrip * 0.5,
-            -vstrip * 0.5,
-            Camera::WIDTH + hstrip,
-            Camera::HEIGHT + vstrip,
-        );
-        set_screen_coordinates(ctx, rect).expect("Cannot resize screen");
+            })
+            .with(Player)
+            .with(Velocity::default())
+            .with(Movement {
+                direction: None,
+                acceleration: 5000.0,
+                speed: 500.0,
+                damping: 1500.0,
+            });
     }
 }
 
-fn main() -> GameResult<()> {
-    env_logger::init();
-    let resources =
-        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap_or_default()).join("resources");
-
-    let (mut ctx, mut event_loop) = ContextBuilder::new("isaac-tears", "ergo_games")
-        .add_resource_path(&resources)
-        .build()?;
-
-    let mut game = Isaac::new(&mut ctx);
-    if let Err(e) = event::run(&mut ctx, &mut event_loop, &mut game) {
-        println!("Error occurred: {}", e);
+impl Plugin for IsaacInit {
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_startup_systems(vec![Self::materials.system(), Self::camera.system()])
+            .add_startup_stage(Self::STAGE)
+            .add_startup_systems_to_stage(Self::STAGE, vec![Self::player.system()]);
     }
-    Ok(())
+}
+
+struct Player;
+
+#[derive(Debug, Default)]
+struct Velocity(Vec2);
+
+struct Movement {
+    pub direction: Option<Vec2>,
+    pub speed: f32,
+    pub acceleration: f32,
+    pub damping: f32,
+}
+
+fn player_movement(
+    actions: ChangedRes<Input<Action>>,
+    mut query: Query<With<Player, &mut Movement>>,
+) {
+    use crate::Action::*;
+    use crate::Direction::*;
+
+    let mut direction = Vec2::default();
+    if actions.pressed(Move(Left)) {
+        direction += Vec2::new(-1.0, 0.0);
+    }
+    if actions.pressed(Move(Right)) {
+        direction += Vec2::new(1.0, 0.0);
+    }
+    if actions.pressed(Move(Up)) {
+        direction += Vec2::new(0.0, 1.0);
+    }
+    if actions.pressed(Move(Down)) {
+        direction += Vec2::new(0.0, -1.0);
+    }
+
+    let is_moving = direction.length_squared() > f32::EPSILON;
+    for mut movement in query.iter_mut() {
+        movement.direction = if is_moving {
+            Some(direction.normalize())
+        } else {
+            None
+        };
+    }
+}
+
+fn moving(time: Res<Time>, mut query: Query<(&Movement, &mut Velocity)>) {
+    let dt = time.delta_seconds;
+    for (movement, mut velocity) in query.iter_mut() {
+        let is_moving = movement.direction.is_some();
+        let target = movement.speed * movement.direction.unwrap_or_default();
+        let current = velocity.0;
+        let error = target - current;
+        // println!("Target: {:?}", target);
+        let norm = error.length();
+        if norm > f32::EPSILON {
+            let coeff = if is_moving {
+                movement.acceleration
+            } else {
+                movement.damping
+            };
+
+            velocity.0 = if norm <= coeff * dt {
+                target
+            } else {
+                current + coeff * dt / norm * error
+            };
+        }
+    }
+}
+
+fn physics(time: Res<Time>, mut query: Query<(&Movement, &Velocity, &mut Transform)>) {
+    let dt = time.delta_seconds;
+    for (movement, vel, mut transform) in query.iter_mut() {
+        transform.translation += vel.0.extend(0.0) * dt;
+        let angle = match movement.direction {
+            Some(v) => angle(v),
+            None => -std::f32::consts::FRAC_PI_2,
+        };
+        transform.rotation = Quat::from_rotation_z(angle);
+    }
+}
+
+fn angle(v: Vec2) -> f32 {
+    v.y().atan2(v.x())
+}
+
+fn main() {
+    env_logger::init();
+    App::build()
+        .add_resource(WindowDescriptor {
+            title: "Isaac's Tears".to_string(),
+            ..Default::default()
+        })
+        .add_resource(ClearColor(Color::rgb(0.12, 0.12, 0.12)))
+        .add_plugins(DefaultPlugins)
+        .add_plugin(IsaacInit)
+        .add_plugin(IsaacInputs)
+        .add_system(player_movement.system())
+        .add_system(moving.system())
+        .add_system(physics.system())
+        .add_system(exit_on_esc_system.system())
+        .run();
 }
