@@ -5,34 +5,27 @@ use bevy::{input::system::exit_on_esc_system, prelude::*};
 
 use crate::inputs::Direction;
 // use std::path::PathBuf;
-struct Materials {
-    pub player: Handle<ColorMaterial>,
-}
 
 struct IsaacInit;
 
 impl IsaacInit {
     const STAGE: &'static str = "game_setup";
 
-    fn materials(
-        mut commands: Commands,
-        asset_server: Res<AssetServer>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
-    ) {
-        let player_texture = asset_server.load("player.png");
-        commands.insert_resource(Materials {
-            player: materials.add(player_texture.into()),
-        });
-    }
-
     fn camera(mut commands: Commands) {
         commands.spawn(Camera2dComponents::default());
     }
 
-    fn player(mut commands: Commands, mats: Res<Materials>) {
+    fn player(
+        mut commands: Commands,
+        asset_server: Res<AssetServer>,
+        mut atlases: ResMut<Assets<TextureAtlas>>,
+    ) {
+        let player_handle = asset_server.load("fox-run.png");
+        let player_atlas = TextureAtlas::from_grid(player_handle, Vec2::new(24.0, 24.0), 6, 1);
         commands
-            .spawn(SpriteComponents {
-                material: mats.player.clone(),
+            .spawn(SpriteSheetComponents {
+                texture_atlas: atlases.add(player_atlas),
+                transform: Transform::from_scale(Vec3::splat(6.0)),
                 ..Default::default()
             })
             .with(Player)
@@ -42,13 +35,14 @@ impl IsaacInit {
                 acceleration: 5000.0,
                 speed: 500.0,
                 damping: 1500.0,
-            });
+            })
+            .with(Timer::from_seconds(0.1, true));
     }
 }
 
 impl Plugin for IsaacInit {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_startup_systems(vec![Self::materials.system(), Self::camera.system()])
+        app.add_startup_systems(vec![Self::camera.system()])
             .add_startup_stage(Self::STAGE)
             .add_startup_systems_to_stage(Self::STAGE, vec![Self::player.system()]);
     }
@@ -122,20 +116,29 @@ fn moving(time: Res<Time>, mut query: Query<(&Movement, &mut Velocity)>) {
     }
 }
 
-fn physics(time: Res<Time>, mut query: Query<(&Movement, &Velocity, &mut Transform)>) {
+fn physics(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
     let dt = time.delta_seconds;
-    for (movement, vel, mut transform) in query.iter_mut() {
-        transform.translation += vel.0.extend(0.0) * dt;
-        let angle = match movement.direction {
-            Some(v) => angle(v),
-            None => -std::f32::consts::FRAC_PI_2,
-        };
-        transform.rotation = Quat::from_rotation_z(angle);
+    for (velocity, mut transform) in query.iter_mut() {
+        transform.translation += velocity.0.extend(0.0) * dt;
+        let scale = transform.scale.x().abs();
+        if velocity.0.x() > f32::EPSILON {
+            *transform.scale.x_mut() = scale;
+        } else if velocity.0.x() < -f32::EPSILON {
+            *transform.scale.x_mut() = -scale;
+        }
     }
 }
 
-fn angle(v: Vec2) -> f32 {
-    v.y().atan2(v.x())
+fn animation(
+    sprite_sheets: Res<Assets<TextureAtlas>>,
+    mut query: Query<(&mut Timer, &mut TextureAtlasSprite, &Handle<TextureAtlas>)>,
+) {
+    for (timer, mut sprite, atlas_handle) in query.iter_mut() {
+        if timer.finished {
+            let sprite_sheet = sprite_sheets.get(atlas_handle).unwrap();
+            sprite.index = (sprite.index + 1) % sprite_sheet.len() as u32;
+        }
+    }
 }
 
 fn main() {
@@ -152,6 +155,7 @@ fn main() {
         .add_system(player_movement.system())
         .add_system(moving.system())
         .add_system(physics.system())
+        .add_system(animation.system())
         .add_system(exit_on_esc_system.system())
         .run();
 }
