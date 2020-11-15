@@ -94,7 +94,7 @@ impl Plugin for IsaacInputs {
     fn build(&self, app: &mut AppBuilder) {
         let bindings = KeyBindings::from_file("key_bindings.ron").unwrap_or_default();
         app.add_resource(bindings)
-            .add_resource(Input::<Action>::default())
+            .init_resource::<Input<Action>>()
             //.add_stage(IsaacInputs::STAGE)
             .add_system(IsaacInputs::keyboard.system());
     }

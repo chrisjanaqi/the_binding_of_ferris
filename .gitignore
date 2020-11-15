@@ -3,3 +3,4 @@ target
 *.kra
 .cargo
 key_bindings.ron
+*~

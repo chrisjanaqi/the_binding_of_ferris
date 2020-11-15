@@ -1,9 +1,11 @@
-mod inputs;
+mod animation;
+mod input;
 
-use crate::inputs::*;
+use crate::animation::*;
+use crate::input::*;
 use bevy::{input::system::exit_on_esc_system, prelude::*};
 
-use crate::inputs::Direction;
+use crate::input::Direction;
 // use std::path::PathBuf;
 
 struct IsaacInit;
@@ -20,8 +22,14 @@ impl IsaacInit {
         asset_server: Res<AssetServer>,
         mut atlases: ResMut<Assets<TextureAtlas>>,
     ) {
-        let player_handle = asset_server.load("fox-run.png");
-        let player_atlas = TextureAtlas::from_grid(player_handle, Vec2::new(24.0, 24.0), 6, 1);
+        let player_handle = asset_server.load("scorpion.png");
+        let player_atlas = TextureAtlas::from_grid(player_handle, Vec2::new(32.0, 32.0), 5, 6);
+        let animation = Animation::from_file("scorpion.ron")
+            .map_err(|e| {
+                println!("{:?}", e.to_string());
+                e
+            })
+            .unwrap_or_default();
         commands
             .spawn(SpriteSheetComponents {
                 texture_atlas: atlases.add(player_atlas),
@@ -36,7 +44,7 @@ impl IsaacInit {
                 speed: 500.0,
                 damping: 1500.0,
             })
-            .with(Timer::from_seconds(0.1, true));
+            .with(animation);
     }
 }
 
@@ -62,7 +70,7 @@ struct Movement {
 
 fn player_movement(
     actions: ChangedRes<Input<Action>>,
-    mut query: Query<With<Player, &mut Movement>>,
+    mut query: Query<With<Player, (&mut Movement, &mut Animation)>>,
 ) {
     use crate::Action::*;
     use crate::Direction::*;
@@ -82,11 +90,13 @@ fn player_movement(
     }
 
     let is_moving = direction.length_squared() > f32::EPSILON;
-    for mut movement in query.iter_mut() {
-        movement.direction = if is_moving {
-            Some(direction.normalize())
+    for (mut movement, mut animation) in query.iter_mut() {
+        if is_moving {
+            animation.set_state(AnimState::Move(AnimOrientation::Side));
+            movement.direction = Some(direction.normalize());
         } else {
-            None
+            animation.set_state(AnimState::Idle(AnimOrientation::Side));
+            movement.direction = None;
         };
     }
 }
@@ -129,18 +139,6 @@ fn physics(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
     }
 }
 
-fn animation(
-    sprite_sheets: Res<Assets<TextureAtlas>>,
-    mut query: Query<(&mut Timer, &mut TextureAtlasSprite, &Handle<TextureAtlas>)>,
-) {
-    for (timer, mut sprite, atlas_handle) in query.iter_mut() {
-        if timer.finished {
-            let sprite_sheet = sprite_sheets.get(atlas_handle).unwrap();
-            sprite.index = (sprite.index + 1) % sprite_sheet.len() as u32;
-        }
-    }
-}
-
 fn main() {
     env_logger::init();
     App::build()
@@ -152,10 +150,10 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(IsaacInit)
         .add_plugin(IsaacInputs)
+        .add_plugin(IsaacAnimations)
         .add_system(player_movement.system())
         .add_system(moving.system())
         .add_system(physics.system())
-        .add_system(animation.system())
         .add_system(exit_on_esc_system.system())
         .run();
 }
