@@ -1,0 +1,30 @@
+Animation(
+    graph: {
+        Idle(Side): Idle(Side),
+        Move(Side): Move(Side),
+        Attack(Side): Idle(Side),
+    },
+    data: {
+        Idle(Side): AnimData(
+            start: 0,
+            length: 4,
+        ),
+        Move(Side): AnimData(
+            start: 5,
+            length: 4,
+        ),
+        Attack(Side): AnimData(
+            start: 10,
+            length: 4,
+        ),
+        Hit(Side): AnimData(
+            start: 15,
+            length: 3,
+        ),
+        Die(Side): AnimData(
+            start: 20,
+            length: 5,
+        ),
+    },
+    current: Idle(Side),
+)
