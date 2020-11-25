@@ -7,25 +7,25 @@ use std::mem::{discriminant, Discriminant};
 #[derive(Serialize, Deserialize)]
 struct KeyBindings(HashMap<KeyCode, Action>);
 
-pub struct Actions<T> {
+pub struct Actions<E> {
     /// Currently active player actions
-    active: HashMap<Discriminant<T>, T>,
+    active: HashMap<Discriminant<E>, E>,
     /// New actions of the player this frame
-    new: HashMap<Discriminant<T>, T>,
+    new: HashMap<Discriminant<E>, E>,
     /// Action finished this frame
-    finished: HashMap<Discriminant<T>, T>,
+    finished: HashMap<Discriminant<E>, E>,
 }
 
-impl<T> Actions<T>
+impl<E> Actions<E>
 where
-    T: Copy,
+    E: Copy,
 {
     pub fn update(&mut self) {
         self.new.clear();
         self.finished.clear();
     }
 
-    pub fn start(&mut self, action: T) {
+    pub fn start(&mut self, action: E) {
         let key = discriminant(&action);
         if !self.active.contains_key(&key) {
             self.new.insert(key, action);
@@ -34,24 +34,25 @@ where
         self.active.insert(key, action);
     }
 
-    pub fn stop(&mut self, action: T) {
+    pub fn stop(&mut self, action: E) {
         let key = discriminant(&action);
         if let Some(action) = self.active.remove(&key) {
             self.finished.insert(key, action);
         }
     }
 
-    pub fn get(&self, action: T) -> Option<&T> {
-        self.active.get(&discriminant(&action))
+    pub fn get<T: Default>(&self, action: fn(T) -> E) -> Option<&E> {
+        self.active.get(&discriminant(&action(Default::default())))
     }
 
-    // pub fn just_started(&self, action: T) -> Option<&T> {
-    //     self.new.get(&discriminant(&action))
-    // }
+    pub fn just_started<T: Default>(&self, action: fn(T) -> E) -> Option<&E> {
+        self.new.get(&discriminant(&action(Default::default())))
+    }
 
-    // pub fn just_finished(&self, action: T) -> Option<&T> {
-    //     self.finished.get(&discriminant(&action))
-    // }
+    pub fn just_finished<T: Default>(&self, action: fn(T) -> E) -> Option<&E> {
+        self.finished
+            .get(&discriminant(&action(Default::default())))
+    }
 
     // pub fn active_actions(&self) -> impl ExactSizeIterator<Item = &T> {
     //     self.active.values()

@@ -1,10 +1,12 @@
-use crate::Velocity;
+use crate::input::*;
+use crate::player::Player;
 
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // const FRAMERATE: u32 = 10;
+pub const ZOOM: f32 = 6.0;
 
 #[derive(Debug, Default)]
 pub struct AnimTimer(pub Timer);
@@ -44,13 +46,14 @@ pub struct Animation {
 
 impl Animation {
     pub fn next_frame(&mut self) -> u32 {
+        let index = self.index();
         if !self.paused {
             self.index += 1;
             if self.index == self.current().length {
                 self.next_state();
             }
         }
-        self.index()
+        index
     }
 
     fn current(&self) -> AnimData {
@@ -69,14 +72,30 @@ impl Animation {
     }
 
     pub fn set_state(&mut self, state: AnimState) {
-        if state != self.current {
+        if state != self.current && self.data.contains_key(&state) {
             self.index = 0;
             self.current = state;
+            self.graph.entry(state).or_default();
         }
     }
 
     pub fn from_file(path: &str) -> Result<Self, ron::Error> {
         ron::from_str(&std::fs::read_to_string(path)?)
+    }
+
+    /// Creates a simple one state animation of given length
+    pub fn from_length(length: u32) -> Self {
+        Self {
+            data: std::iter::once((
+                Default::default(),
+                AnimData {
+                    length,
+                    ..Default::default()
+                },
+            ))
+            .collect(),
+            ..Default::default()
+        }
     }
 }
 
@@ -96,13 +115,23 @@ impl IsaacAnimations {
         }
     }
 
-    fn orientation(mut query: Query<(&mut Transform, Changed<Velocity>)>) {
-        for (mut transform, velocity) in query.iter_mut() {
-            let scale = transform.scale.x().abs();
-            if velocity.0.x() > f32::EPSILON {
-                *transform.scale.x_mut() = scale;
-            } else if velocity.0.x() < -f32::EPSILON {
-                *transform.scale.x_mut() = -scale;
+    fn orientation(
+        actions: ChangedRes<Actions<Action>>,
+        mut query: Query<With<Player, &mut Transform>>,
+    ) {
+        for mut transform in query.iter_mut() {
+            if let Some(Action::Shoot(direction)) = actions.get(Action::Shoot) {
+                if direction.x() > f32::EPSILON {
+                    *transform.scale.x_mut() = ZOOM;
+                } else if direction.x() < -f32::EPSILON {
+                    *transform.scale.x_mut() = -ZOOM;
+                }
+            } else if let Some(Action::Move(direction)) = actions.get(Action::Move) {
+                if direction.x() > f32::EPSILON {
+                    *transform.scale.x_mut() = ZOOM;
+                } else if direction.x() < -f32::EPSILON {
+                    *transform.scale.x_mut() = -ZOOM;
+                }
             }
         }
     }
