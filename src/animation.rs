@@ -11,6 +11,19 @@ pub const ZOOM: f32 = 6.0;
 #[derive(Debug, Default)]
 pub struct AnimTimer(pub Timer);
 
+impl AnimTimer {
+    fn reset(&mut self) {
+        // self.0.reset();
+        self.0.finished = true;
+        self.0.just_finished = true;
+    }
+}
+
+pub struct PlayerAnimEvent {
+    // pub priority: i32,
+    pub state: AnimState,
+}
+
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone, Serialize, Deserialize)]
 pub enum AnimState {
     Idle(AnimOrientation),
@@ -31,6 +44,7 @@ pub enum AnimOrientation {
 pub struct AnimData {
     pub start: u32,
     pub length: u32,
+    pub priority: i32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -38,6 +52,8 @@ pub struct Animation {
     graph: HashMap<AnimState, AnimState>,
     data: HashMap<AnimState, AnimData>,
     current: AnimState,
+    #[serde(skip)]
+    next: Option<AnimState>,
     #[serde(skip)]
     index: u32,
     #[serde(skip)]
@@ -61,7 +77,13 @@ impl Animation {
     }
 
     fn next_state(&mut self) {
-        if let Some(&state) = self.graph.get(&self.current) {
+        if let Some(state) = self.next {
+            // println!("Next state is {:?}", state);
+            self.index = 0;
+            self.current = state;
+            self.next = None;
+        } else if let Some(&state) = self.graph.get(&self.current) {
+            // println!("Next state is {:?}", state);
             self.index = 0;
             self.current = state;
         }
@@ -73,9 +95,20 @@ impl Animation {
 
     pub fn set_state(&mut self, state: AnimState) {
         if state != self.current && self.data.contains_key(&state) {
-            self.index = 0;
-            self.current = state;
-            self.graph.entry(state).or_default();
+            let state_priority = self.data[&state].priority;
+            let current_priority = self.data[&self.current].priority;
+            if state_priority >= current_priority {
+                println!("Setting state to {:?}", state);
+                if state_priority > current_priority {
+                    self.next = Some(self.current);
+                }
+                self.index = 0;
+                self.current = state;
+                self.graph.entry(state).or_default();
+            } else {
+                println!("Setting next state to {:?}", state);
+                self.next = Some(state);
+            }
         }
     }
 
@@ -102,7 +135,7 @@ impl Animation {
 pub struct IsaacAnimations;
 
 impl IsaacAnimations {
-    fn animation(
+    fn animation_update(
         time: Res<Time>,
         mut timer: ResMut<AnimTimer>,
         mut query: Query<(&mut TextureAtlasSprite, &mut Animation)>,
@@ -115,11 +148,14 @@ impl IsaacAnimations {
         }
     }
 
-    fn orientation(
+    fn player_animation(
+        mut reader: Local<EventReader<PlayerAnimEvent>>,
         actions: ChangedRes<Actions<Action>>,
-        mut query: Query<With<Player, &mut Transform>>,
+        anim_events: Res<Events<PlayerAnimEvent>>,
+        mut timer: ResMut<AnimTimer>,
+        mut query: Query<With<Player, (&mut Transform, &mut Animation)>>,
     ) {
-        for mut transform in query.iter_mut() {
+        for (mut transform, mut animation) in query.iter_mut() {
             if let Some(Action::Shoot(direction)) = actions.get(Action::Shoot) {
                 if direction.x() > f32::EPSILON {
                     *transform.scale.x_mut() = ZOOM;
@@ -133,6 +169,10 @@ impl IsaacAnimations {
                     *transform.scale.x_mut() = -ZOOM;
                 }
             }
+            for player_anim in reader.iter(&anim_events) {
+                animation.set_state(player_anim.state);
+                timer.reset();
+            }
         }
     }
 }
@@ -140,8 +180,9 @@ impl IsaacAnimations {
 impl Plugin for IsaacAnimations {
     fn build(&self, app: &mut AppBuilder) {
         app.add_resource(AnimTimer(Timer::from_seconds(0.1, true)))
-            .add_system(Self::animation.system())
-            .add_system(Self::orientation.system());
+            .add_event::<PlayerAnimEvent>()
+            .add_system(Self::player_animation.system())
+            .add_system(Self::animation_update.system());
     }
 }
 
@@ -163,6 +204,7 @@ impl Default for Animation {
             graph: std::iter::once((Default::default(), Default::default())).collect(),
             data: std::iter::once((Default::default(), Default::default())).collect(),
             current: Default::default(),
+            next: Default::default(),
             index: Default::default(),
             paused: false,
         }
@@ -172,6 +214,7 @@ impl Default for Animation {
 impl Default for AnimData {
     fn default() -> Self {
         Self {
+            priority: 0,
             start: 0,
             length: 1,
         }

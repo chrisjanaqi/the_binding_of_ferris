@@ -23,21 +23,27 @@ pub struct TearTag;
 pub struct IsaacPlayer;
 
 impl IsaacPlayer {
-    fn player_action(
+    fn player_movement(
+        mut animation_events: ResMut<Events<PlayerAnimEvent>>,
         actions: Res<Actions<Action>>,
-        mut query: Query<With<Player, (&mut Movement, &mut Animation)>>,
+        mut query: Query<With<Player, &mut Movement>>,
     ) {
         use crate::Action::*;
-        for (mut movement, mut animation) in query.iter_mut() {
+        for mut movement in query.iter_mut() {
             if let Some(Move(direction)) = actions.get(Move) {
                 movement.direction = Some(*direction);
             } else {
                 movement.direction = None;
             }
+
             if actions.just_started(Move).is_some() {
-                animation.set_state(AnimState::Move(AnimOrientation::Side));
+                animation_events.send(PlayerAnimEvent {
+                    state: AnimState::Move(AnimOrientation::Side),
+                });
             } else if actions.just_finished(Move).is_some() {
-                animation.set_state(AnimState::Idle(AnimOrientation::Side));
+                animation_events.send(PlayerAnimEvent {
+                    state: AnimState::Idle(AnimOrientation::Side),
+                });
             }
         }
     }
@@ -46,11 +52,12 @@ impl IsaacPlayer {
         time: Res<Time>,
         actions: Res<Actions<Action>>,
         mut shoot_events: ResMut<Events<ShootEvent>>,
-        mut query: Query<(Entity, &mut Player, &mut Animation)>,
+        mut animation_events: ResMut<Events<PlayerAnimEvent>>,
+        mut query: Query<(Entity, &mut Player)>,
     ) {
         use crate::Action::*;
 
-        for (e, mut player, mut animation) in query.iter_mut() {
+        for (e, mut player) in query.iter_mut() {
             player.attack_cooldown.tick(time.delta_seconds);
             if let Some(Shoot(direction)) = actions.get(Shoot) {
                 if player.attack_cooldown.finished {
@@ -62,7 +69,9 @@ impl IsaacPlayer {
                         speed: player.attack_speed,
                         lifetime: player.attack_lifetime,
                     });
-                    animation.set_state(AnimState::Attack(AnimOrientation::Side));
+                    animation_events.send(PlayerAnimEvent {
+                        state: AnimState::Attack(AnimOrientation::Side),
+                    });
                 }
             }
         }
@@ -90,7 +99,7 @@ impl IsaacPlayer {
                         ..Default::default()
                     })
                     .with(Velocity(direction * shoot.speed + 0.33 * velocity.0))
-                    .with(Animation::from_length(2))
+                    .with(Animation::from_length(3))
                     .with(Timer::from_seconds(shoot.lifetime, false))
                     .with(TearTag);
             }
@@ -110,9 +119,9 @@ impl IsaacPlayer {
 impl Plugin for IsaacPlayer {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<ShootEvent>()
-            .add_system(Self::player_action.system())
+            .add_system(Self::player_movement.system())
+            .add_system(Self::shooting.system())
             .add_system(Self::tear_spawn.system())
-            .add_system(Self::tear_despawn.system())
-            .add_system(Self::shooting.system());
+            .add_system(Self::tear_despawn.system());
     }
 }

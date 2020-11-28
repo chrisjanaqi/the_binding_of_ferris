@@ -13,6 +13,7 @@ use bevy::{input::system::exit_on_esc_system, prelude::*};
 pub struct Materials {
     pub player: Handle<TextureAtlas>,
     pub tears: Handle<TextureAtlas>,
+    pub ground: Handle<ColorMaterial>,
 }
 
 struct IsaacInit;
@@ -24,14 +25,17 @@ impl IsaacInit {
         mut command: Commands,
         asset_server: Res<AssetServer>,
         mut atlases: ResMut<Assets<TextureAtlas>>,
+        mut textures: ResMut<Assets<ColorMaterial>>,
     ) {
         let player_handle = asset_server.load("scorpion.png");
         let tear_handle = asset_server.load("tear.png");
+        let ground_handle = asset_server.load("ground.png");
         let player_atlas = TextureAtlas::from_grid(player_handle, Vec2::new(32.0, 32.0), 5, 5);
-        let tear_atlas = TextureAtlas::from_grid(tear_handle, Vec2::new(8.0, 8.0), 2, 1);
+        let tear_atlas = TextureAtlas::from_grid(tear_handle, Vec2::new(8.0, 8.0), 3, 1);
         command.insert_resource(Materials {
             player: atlases.add(player_atlas),
             tears: atlases.add(tear_atlas),
+            ground: textures.add(ground_handle.into()),
         });
     }
 
@@ -39,14 +43,14 @@ impl IsaacInit {
         commands.spawn(Camera2dComponents::default());
     }
 
-    fn player(mut commands: Commands, materials: Res<Materials>) {
+    fn player(mut command: Commands, materials: Res<Materials>) {
         let animation = Animation::from_file("assets/scorpion.ron")
             .map_err(|e| {
                 println!("{:?}", e.to_string());
                 e
             })
             .unwrap_or_default();
-        commands
+        command
             .spawn(SpriteSheetComponents {
                 texture_atlas: materials.player.clone(),
                 transform: Transform::from_scale(Vec3::splat(ZOOM)),
@@ -55,7 +59,7 @@ impl IsaacInit {
             .with(Player {
                 attack_cooldown: Timer::from_seconds(0.5, false),
                 attack_speed: 750.0,
-                attack_lifetime: 2.0,
+                attack_lifetime: 1.2,
             })
             .with(Velocity::default())
             .with(Movement {
@@ -66,13 +70,24 @@ impl IsaacInit {
             })
             .with(animation);
     }
+
+    fn ground(mut command: Commands, materials: Res<Materials>) {
+        command.spawn(SpriteComponents {
+            transform: Transform::from_scale(Vec3::splat(ZOOM)),
+            material: materials.ground.clone(),
+            ..Default::default()
+        });
+    }
 }
 
 impl Plugin for IsaacInit {
     fn build(&self, app: &mut AppBuilder) {
         app.add_startup_systems(vec![Self::camera.system(), Self::load_texture.system()])
             .add_startup_stage(Self::STAGE)
-            .add_startup_systems_to_stage(Self::STAGE, vec![Self::player.system()]);
+            .add_startup_systems_to_stage(
+                Self::STAGE,
+                vec![Self::ground.system(), Self::player.system()],
+            );
     }
 }
 

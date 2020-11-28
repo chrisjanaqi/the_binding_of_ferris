@@ -4,3 +4,6 @@ target
 .cargo
 key_bindings.ron
 *~
+assets/ground_small.png
+assets/*.tmx
+assets/*.tsx
