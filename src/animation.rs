@@ -98,7 +98,7 @@ impl Animation {
             let state_priority = self.data[&state].priority;
             let current_priority = self.data[&self.current].priority;
             if state_priority >= current_priority {
-                println!("Setting state to {:?}", state);
+                // println!("Setting state to {:?}", state);
                 if state_priority > current_priority {
                     self.next = Some(self.current);
                 }
@@ -106,7 +106,7 @@ impl Animation {
                 self.current = state;
                 self.graph.entry(state).or_default();
             } else {
-                println!("Setting next state to {:?}", state);
+                // println!("Setting next state to {:?}", state);
                 self.next = Some(state);
             }
         }
