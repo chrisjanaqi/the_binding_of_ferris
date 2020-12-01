@@ -38,12 +38,27 @@ impl IsaacUI {
             }
         }
     }
+
+    fn fps_console(mut timer: Local<Timer>, time: Res<Time>, diagnostics: Res<Diagnostics>) {
+        timer.duration = 1.0;
+        timer.repeating = true;
+        timer.tick(time.delta_seconds);
+        if timer.just_finished {
+            if let Some(fps) = diagnostics
+                .get(FrameTimeDiagnosticsPlugin::FPS)
+                .and_then(|diag| diag.average())
+            {
+                println!("{:.0} fps", fps);
+            }
+        }
+    }
 }
 
 impl Plugin for IsaacUI {
     fn build(&self, app: &mut AppBuilder) {
         app.add_plugin(FrameTimeDiagnosticsPlugin::default())
-            .add_startup_system(Self::setup.system())
-            .add_system(Self::fps_ui.system());
+            // .add_startup_system(Self::setup.system())
+            .add_system(Self::fps_console.system());
+        // .add_system(Self::fps_ui.system());
     }
 }

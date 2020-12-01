@@ -14,84 +14,61 @@ layout(set = 1, binding = 3) uniform WaterCaustics_time {
     float time;
 };
 
-vec3 mod289(vec3 x) {
-    return x - floor(x * (1.0 / 289.0)) * 289.0;
+const mat2 myt = mat2(.12121212, .13131313, -.13131313, .12121212);
+const vec2 mys = vec2(1e4, 1e6);
+const vec2 zoom1 = vec2(5.0);
+const vec2 zoom2 = vec2(4.95);
+const vec2 speed1 = vec2(0.2, -0.3);
+const vec2 speed2 = vec2(0.1, 0.5);
+const float split = 0.03;
+const float sharpness = 3.5;
+
+vec2 rhash(vec2 uv) {
+    uv *= myt;
+    uv *= mys;
+    return fract(fract(uv / mys) * uv);
 }
 
-vec2 mod289(vec2 x) {
-    return x - floor(x * (1.0 / 289.0)) * 289.0;
+vec3 hash(vec3 p) {
+    return fract(
+        sin(vec3(
+            dot(p, vec3(1.0, 57.0, 113.0)),
+            dot(p, vec3(57.0, 113.0, 1.0)),
+            dot(p, vec3(113.0, 1.0, 57.0)))
+        ) * 43758.5453
+    );
 }
 
-vec3 permute(vec3 x) {
-    return mod289((x * 34.0 + 1.0) * x);
+float voronoi2d(const in vec2 point) {
+    vec2 p = floor(point);
+    vec2 f = fract(point);
+    float res = 0.0;
+    for (int j = -1; j <= 1; j++) {
+        for (int i = -1; i <= 1; i++) {
+            vec2 b = vec2(i, j);
+            vec2 r = vec2(b) - f + rhash(p + b);
+            res += 1. / pow(dot(r, r), 8.);
+        }
+    }
+    return pow(1. / res, 0.0625);
 }
 
-vec3 taylorInvSqrt(vec3 r) {
-    return 1.79284291400159 - 0.85373472095314 * r;
-}
-
-float snoise(vec2 v) {
-    // NOTE: OUTPUT IS IN [-1, 1] WITH MEDIAN 0
-    const vec4 C = vec4(
-        0.211324865405187,  // (3.0-sqrt(3.0))/6.0
-        0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
-        -0.577350269189626,  // -1.0 + 2.0 * C.x
-        0.024390243902439
-    ); // 1.0 / 41.0
-    
-    // First corner
-    vec2 i = floor(v + dot(v, C.yy));
-    vec2 x0 = v - i + dot(i, C.xx);
-    
-    // Other corners
-    vec2 i1;
-    i1.x = step(x0.y, x0.x);
-    i1.y = 1.0 - i1.x;
-    
-    // x1 = x0 - i1  + 1.0 * C.xx;
-    // x2 = x0 - 1.0 + 2.0 * C.xx;
-    vec2 x1 = x0 + C.xx - i1;
-    vec2 x2 = x0 + C.zz;
-    
-    // Permutations
-    i = mod289(i); // Avoid truncation effects in permutation
-    vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
-    
-    vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x1, x1), dot(x2, x2)), 0.0);
-    m = pow(m, vec3(4));
-    
-    // Gradients: 41 points uniformly over a line, mapped onto a diamond.
-    // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
-    vec3 x = 2.0 * fract(p * C.www) - 1.0;
-    vec3 h = abs(x) - 0.5;
-    vec3 ox = floor(x + 0.5);
-    vec3 a0 = x - ox;
-    
-    // Normalise gradients implicitly by scaling m
-    m *= taylorInvSqrt(a0 * a0 + h * h);
-    
-    // Compute final noise value at P
-    vec3 g;
-    g.x = a0.x * x0.x + h.x * x0.y;
-    g.y = a0.y * x1.x + h.y * x1.y;
-    g.z = a0.z * x2.x + h.z * x2.y;
-    return 130.0 * dot(m, g);
-}
-
-float caustic(vec2 pos, vec2 offset, float freq) {
-  return pow(1-abs(snoise(offset+pos*freq)), 2.0);
+vec4 caustics(const in vec2 pos, const in vec2 offset) {
+    float r = voronoi2d(pos + offset + vec2(split, split));
+    float g = voronoi2d(pos + offset + vec2(split, -split));
+    float b = voronoi2d(pos + offset + vec2(-split, -split));
+    float a = voronoi2d(pos + offset);
+    return pow(vec4(r, g, b, 1.0), vec4(sharpness));
 }
 
 void main() {
     vec4 pos = position / position.w;
-    float alpha = 1.0;
-    float base = 2.0;
-    for (int i= 0; i < 3; i++) {
-        float freq = pow(base, i+1);
-        vec2 offset = vec2(snoise(vec2(sin(0.01 * time * pow(i+1, 3.0)))), snoise(vec2(cos(0.01 * time * pow(i+1, 3.1)))));
-        alpha *= pow(caustic(pos.xy, offset, freq), freq);
-    }
-    vec4 color = mix(diffuse, highlight, alpha);
-    color.a *= 0.8;
+    vec4 c1 = caustics(zoom1 * pos.xy, speed1 * time);
+    vec4 c2 = caustics(zoom2 * pos.xy, speed2 * time);
+    // vec4 c3 = caustics(zoom2 * pos.yx, speed1 * time);
+    vec4 c = min(c1, c2);
+
+    vec4 color = mix(vec4(0.0), highlight, c);
+    color.a *= 0.5;
     o_Target = color;
 }

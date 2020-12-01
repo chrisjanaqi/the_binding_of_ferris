@@ -90,7 +90,7 @@ impl IsaacInit {
                     .unwrap();
 
                 let material = materials.add(WaterCaustics {
-                    diffuse: Color::rgb_u8(1, 87, 155),
+                    diffuse: Color::rgba(0.13, 0.59, 0.95, 1.0),
                     highlight: Color::WHITE,
                     time: 0.0,
                 });
@@ -160,7 +160,7 @@ impl IsaacInit {
             })
             .with(Player {
                 attack_cooldown: Timer::from_seconds(0.5, false),
-                attack_speed: 750.0,
+                attack_speed: 700.0,
                 attack_lifetime: 1.2,
             })
             .with(Velocity::default())
