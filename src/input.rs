@@ -1,11 +1,11 @@
+#![allow(clippy::mem_discriminant_non_enum)]
+use crate::FromRon;
+
 use bevy::prelude::*;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::mem::{discriminant, Discriminant};
-
-#[derive(Serialize, Deserialize)]
-struct KeyBindings(HashMap<KeyCode, Action>);
 
 pub struct Actions<E> {
     /// Currently active player actions
@@ -53,21 +53,9 @@ where
         self.finished
             .get(&discriminant(&action(Default::default())))
     }
-
-    // pub fn active_actions(&self) -> impl ExactSizeIterator<Item = &T> {
-    //     self.active.values()
-    // }
-
-    // pub fn new_actions(&self) -> impl ExactSizeIterator<Item = &T> {
-    //     self.new.values()
-    // }
-
-    // pub fn finished_actions(&self) -> impl ExactSizeIterator<Item = &T> {
-    //     self.finished.values()
-    // }
 }
 
-impl<T> Default for Actions<T> {
+impl<E> Default for Actions<E> {
     fn default() -> Self {
         Self {
             active: Default::default(),
@@ -92,6 +80,9 @@ impl Action {
         matches!(self, Self::Move(_) | Self::Shoot(_))
     }
 }
+
+#[derive(Serialize, Deserialize)]
+struct KeyBindings(HashMap<KeyCode, Action>);
 
 impl KeyBindings {
     fn get(&self, key: &KeyCode) -> Option<Action> {
@@ -118,10 +109,6 @@ impl KeyBindings {
             .into_iter()
             .collect(),
         )
-    }
-
-    fn from_file(path: &str) -> Result<Self, ron::Error> {
-        ron::from_str(&std::fs::read_to_string(path)?)
     }
 }
 
@@ -188,7 +175,12 @@ impl IsaacInputs {
 
 impl Plugin for IsaacInputs {
     fn build(&self, app: &mut AppBuilder) {
-        let bindings = KeyBindings::from_file("key_bindings.ron").unwrap_or_default();
+        let bindings = KeyBindings::from_file("key_bindings.ron")
+            .map_err(|e| {
+                println!("{}", e);
+                e
+            })
+            .unwrap_or_default();
         app.add_resource(bindings)
             .init_resource::<Actions<Action>>()
             //.add_stage(IsaacInputs::STAGE)

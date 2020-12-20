@@ -21,7 +21,6 @@ impl IsaacPhysic {
             let target = movement.speed * movement.direction.unwrap_or_default();
             let current = velocity.0;
             let error = target - current;
-            // println!("Target: {:?}", target);
             let norm = error.length();
             if norm > f32::EPSILON {
                 let coeff = if is_moving {
@@ -50,7 +49,9 @@ impl IsaacPhysic {
 
 impl Plugin for IsaacPhysic {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system(Self::moving.system())
-            .add_system(Self::physics.system());
+        app.add_systems(vec![
+            Self::moving.system(),
+            Self::physics.system(),
+        ]);
     }
 }

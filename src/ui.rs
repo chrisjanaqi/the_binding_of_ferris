@@ -28,7 +28,19 @@ impl IsaacUI {
             .with(FpsText);
     }
 
-    fn fps_ui(diagnostics: Res<Diagnostics>, mut query: Query<With<FpsText, &mut Text>>) {
+    fn fps_ui(
+        mut timer: Local<Timer>,
+        time: Res<Time>,
+        diagnostics: Res<Diagnostics>,
+        mut query: Query<With<FpsText, &mut Text>>,
+    ) {
+        timer.duration = 1.0;
+        timer.repeating = true;
+        timer.tick(time.delta_seconds);
+        if !timer.just_finished {
+            return;
+        }
+
         for mut text in query.iter_mut() {
             if let Some(fps) = diagnostics
                 .get(FrameTimeDiagnosticsPlugin::FPS)
@@ -57,8 +69,7 @@ impl IsaacUI {
 impl Plugin for IsaacUI {
     fn build(&self, app: &mut AppBuilder) {
         app.add_plugin(FrameTimeDiagnosticsPlugin::default())
-            // .add_startup_system(Self::setup.system())
-            .add_system(Self::fps_console.system());
-        // .add_system(Self::fps_ui.system());
+            .add_startup_system(Self::setup.system())
+            .add_systems(vec![Self::fps_console.system(), Self::fps_ui.system()]);
     }
 }

@@ -68,7 +68,7 @@ void main() {
     // vec4 c3 = caustics(zoom2 * pos.yx, speed1 * time);
     vec4 c = min(c1, c2);
 
-    vec4 color = mix(vec4(0.0), highlight, c);
+    vec4 color = mix(0.1 * diffuse, highlight, c);
     color.a *= 0.5;
     o_Target = color;
 }
