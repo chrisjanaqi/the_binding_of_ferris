@@ -1,4 +1,5 @@
-# Isaac's Tears
+# The Binding Of Ferris 
 
-Small learning project in pure rust using the bevy game engine.
+The Binding of Ferris is a clone of the game The Binding Of Isaac written in rust using the [bevy game engine](https://bevyengine.org/).
+
 
