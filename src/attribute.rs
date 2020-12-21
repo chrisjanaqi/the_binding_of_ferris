@@ -22,7 +22,6 @@ pub struct ProjectileSpeed(f32);
 #[derive(Debug, Clone, Copy)]
 pub struct MovementSpeed(f32);
 
-
 /// Event that inform of a change in a player's attribute
 pub struct AttributeChange<A: Attribute> {
     pub player: Entity,
@@ -45,7 +44,7 @@ impl IsaacAttributes {
     fn update<A: Attribute>(
         mut event_reader: Local<EventReader<AttributeChange<A>>>,
         events: Res<Events<AttributeChange<A>>>,
-        mut query: Query<With<Player, &mut A>>,
+        mut query: Query<&mut A, With<Player>>,
     ) {
         if let Some(&AttributeChange { player, attribute }) = event_reader.latest(&events) {
             if let Err(e) = query.set(player, attribute) {

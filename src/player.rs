@@ -1,9 +1,18 @@
 use crate::animation::*;
 use crate::input::*;
 use crate::physic::*;
+use crate::weapon::*;
 use bevy::prelude::*;
 
 pub struct Player;
+
+#[derive(Bundle)]
+pub struct PlayerBundle {
+    pub player: Player,
+    pub weapon: TearWeapon,
+    pub velocity: Velocity,
+    pub movement: Movement,
+}
 
 pub struct IsaacPlayer;
 
@@ -11,7 +20,7 @@ impl IsaacPlayer {
     fn player_movement(
         mut animation_events: ResMut<Events<PlayerAnimEvent>>,
         actions: Res<Actions<Action>>,
-        mut query: Query<With<Player, &mut Movement>>,
+        mut query: Query<&mut Movement, With<Player>>,
     ) {
         use Action::*;
         for mut movement in query.iter_mut() {
@@ -36,6 +45,6 @@ impl IsaacPlayer {
 
 impl Plugin for IsaacPlayer {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_systems(vec![Self::player_movement.system()]);
+        app.add_system(Self::player_movement.system());
     }
 }

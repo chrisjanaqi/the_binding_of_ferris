@@ -1,6 +1,6 @@
-use crate::animation::{Animation, ZOOM};
+use crate::animation::*;
 use crate::physic::*;
-use crate::player::Player;
+use crate::player::*;
 use crate::render::Materials;
 use crate::weapon::TearWeapon;
 use crate::FromRon;
@@ -12,7 +12,7 @@ impl IsaacInit {
     const STAGE: &'static str = "game_setup";
 
     fn texture_loading(
-        mut command: Commands,
+        command: &mut Commands,
         asset_server: Res<AssetServer>,
         mut atlases: ResMut<Assets<TextureAtlas>>,
         mut textures: ResMut<Assets<ColorMaterial>>,
@@ -22,7 +22,6 @@ impl IsaacInit {
         let ground_handle = asset_server.load("ground.png");
         let player_atlas = TextureAtlas::from_grid(player_handle, Vec2::new(32.0, 32.0), 5, 5);
         let tear_atlas = TextureAtlas::from_grid(tear_handle, Vec2::new(8.0, 8.0), 3, 1);
-        asset_server.watch_for_changes().unwrap();
         command.insert_resource(Materials {
             player: atlases.add(player_atlas),
             tears: atlases.add(tear_atlas),
@@ -30,11 +29,11 @@ impl IsaacInit {
         });
     }
 
-    fn camera_spawn(mut commands: Commands) {
-        commands.spawn(Camera2dComponents::default());
+    fn camera_spawn(command: &mut Commands) {
+        command.spawn(Camera2dBundle::default());
     }
 
-    fn player_spawn(mut command: Commands, materials: Res<Materials>) {
+    fn player_spawn(command: &mut Commands, materials: Res<Materials>) {
         let animation = Animation::from_file("assets/scorpion.ron")
             .map_err(|e| {
                 println!("{:?}", e.to_string());
@@ -42,25 +41,30 @@ impl IsaacInit {
             })
             .unwrap_or_default();
         command
-            .spawn(SpriteSheetComponents {
+            .spawn(PlayerBundle {
+                player: Player,
+                weapon: TearWeapon::new(0.5, 700.0, 1.2),
+                velocity: Default::default(),
+                movement: Movement {
+                    direction: None,
+                    acceleration: 5000.0,
+                    speed: 500.0,
+                    damping: 1500.0,
+                },
+            })
+            .with_bundle(SpriteSheetBundle {
                 texture_atlas: materials.player.clone(),
                 transform: Transform::from_scale(Vec3::splat(ZOOM)),
                 ..Default::default()
             })
-            .with(Player)
-            .with(TearWeapon::new(0.5, 700.0, 1.2))
-            .with(Velocity::default())
-            .with(Movement {
-                direction: None,
-                acceleration: 5000.0,
-                speed: 500.0,
-                damping: 1500.0,
-            })
-            .with(animation);
+            .with_bundle(AnimationBundle {
+                anim_timer: AnimTimer::new(10.0),
+                animation,
+            });
     }
 
-    fn ground_spawn(mut command: Commands, materials: Res<Materials>) {
-        command.spawn(SpriteComponents {
+    fn ground_spawn(command: &mut Commands, materials: Res<Materials>) {
+        command.spawn(SpriteBundle {
             transform: Transform::from_scale(Vec3::splat(ZOOM)),
             material: materials.ground.clone(),
             ..Default::default()
@@ -70,14 +74,13 @@ impl IsaacInit {
 
 impl Plugin for IsaacInit {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_startup_systems(vec![
-            Self::camera_spawn.system(),
-            Self::texture_loading.system(),
-        ])
-        .add_startup_stage(Self::STAGE)
-        .add_startup_systems_to_stage(
-            Self::STAGE,
-            vec![Self::ground_spawn.system(), Self::player_spawn.system()],
-        );
+        app.add_startup_system(Self::camera_spawn.system())
+            .add_startup_system(Self::texture_loading.system())
+            .add_startup_stage(
+                Self::STAGE,
+                SystemStage::parallel()
+                    .with_system(Self::ground_spawn.system())
+                    .with_system(Self::player_spawn.system()),
+            );
     }
 }

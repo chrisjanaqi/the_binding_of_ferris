@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{core::FixedTimestep, prelude::*};
 
 #[derive(Debug, Default)]
 pub struct Velocity(pub Vec2);
@@ -14,8 +14,10 @@ pub struct Movement {
 pub struct IsaacPhysic;
 
 impl IsaacPhysic {
+    const FIXED_TIMESTEP: f64 = 0.01;
+
     fn moving(time: Res<Time>, mut query: Query<(&Movement, &mut Velocity)>) {
-        let dt = time.delta_seconds;
+        let dt = time.delta_seconds();
         for (movement, mut velocity) in query.iter_mut() {
             let is_moving = movement.direction.is_some();
             let target = movement.speed * movement.direction.unwrap_or_default();
@@ -37,8 +39,8 @@ impl IsaacPhysic {
         }
     }
 
-    fn physics(time: Res<Time>, mut query: Query<(Option<&Velocity>, &mut Transform)>) {
-        let dt = time.delta_seconds;
+    fn physics(mut query: Query<(Option<&Velocity>, &mut Transform)>) {
+        let dt = Self::FIXED_TIMESTEP as f32;
         for (velocity, mut transform) in query.iter_mut() {
             if let Some(Velocity(speed)) = velocity {
                 transform.translation += speed.extend(0.0) * dt;
@@ -49,9 +51,12 @@ impl IsaacPhysic {
 
 impl Plugin for IsaacPhysic {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_systems(vec![
-            Self::moving.system(),
-            Self::physics.system(),
-        ]);
+        app.add_system(Self::moving.system()).add_stage_after(
+            stage::UPDATE,
+            "fixed_update",
+            SystemStage::parallel()
+                .with_run_criteria(FixedTimestep::step(Self::FIXED_TIMESTEP))
+                .with_system(Self::physics.system()),
+        );
     }
 }

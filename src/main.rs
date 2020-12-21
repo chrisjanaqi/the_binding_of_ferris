@@ -16,7 +16,7 @@ use crate::input::IsaacInputs;
 use crate::items::IsaacItems;
 use crate::physic::IsaacPhysic;
 use crate::player::IsaacPlayer;
-use crate::render::IsaacRendering;
+// use crate::render::IsaacRendering;
 use crate::ui::IsaacUI;
 use crate::weapon::IsaacWeapons;
 
@@ -36,8 +36,8 @@ where
     }
 }
 
+#[bevy_main]
 fn main() {
-    env_logger::init();
     App::build()
         .add_resource(WindowDescriptor {
             title: "Isaac's Tears".to_string(),
@@ -53,7 +53,7 @@ fn main() {
         .add_plugin(IsaacPhysic)
         .add_plugin(IsaacPlayer)
         .add_plugin(IsaacWeapons)
-        .add_plugin(IsaacRendering)
+        // .add_plugin(IsaacRendering)
         .add_plugin(IsaacItems)
         .add_plugin(IsaacUI)
         .add_system(exit_on_esc_system.system())

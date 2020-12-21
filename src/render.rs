@@ -1,13 +1,13 @@
 use bevy::{
     prelude::*,
+    reflect::TypeUuid,
     render::{
         mesh::shape,
-        pipeline::{DynamicBinding, PipelineDescriptor, PipelineSpecialization, RenderPipeline},
+        pipeline::{PipelineDescriptor, RenderPipeline},
         render_graph::{base, AssetRenderResourcesNode, RenderGraph},
         renderer::RenderResources,
-        shader::{ShaderStage, ShaderStages},
+        shader::ShaderStages,
     },
-    type_registry::TypeUuid,
 };
 
 pub struct Materials {
@@ -40,18 +40,16 @@ impl IsaacRendering {
     }
 
     fn pipeline_setup(
-        mut command: Commands,
+        command: &mut Commands,
+        asset_server: ResMut<AssetServer>,
         mut pipelines: ResMut<Assets<PipelineDescriptor>>,
-        mut shaders: ResMut<Assets<Shader>>,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<WaterCaustics>>,
         mut render_graph: ResMut<RenderGraph>,
     ) {
-        let vertex_shader = std::fs::read_to_string("assets/shaders/water.vert").unwrap();
-        let fragment_shader = std::fs::read_to_string("assets/shaders/water.frag").unwrap();
         let pipeline_handle = pipelines.add(PipelineDescriptor::default_config(ShaderStages {
-            vertex: shaders.add(Shader::from_glsl(ShaderStage::Vertex, &vertex_shader)),
-            fragment: Some(shaders.add(Shader::from_glsl(ShaderStage::Fragment, &fragment_shader))),
+            vertex: asset_server.load::<Shader, _>("shaders/water.vert"),
+            fragment: Some(asset_server.load::<Shader, _>("shaders/water.frag")),
         }));
 
         render_graph.add_system_node(
@@ -68,46 +66,14 @@ impl IsaacRendering {
             highlight: Color::WHITE,
             time: 0.0,
         });
-
+        log::debug!("Test");
         command
-            .spawn(MeshComponents {
+            .spawn(MeshBundle {
                 mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::new(1920.0, 1080.0)))),
-                render_pipelines: RenderPipelines::from_pipelines(vec![
-                    RenderPipeline::specialized(
-                        pipeline_handle,
-                        // NOTE: in the future you wont need to manually declare dynamic bindings
-                        PipelineSpecialization {
-                            dynamic_bindings: vec![
-                                // Transform
-                                DynamicBinding {
-                                    bind_group: 1,
-                                    binding: 0,
-                                },
-                                // WaterCaustics_diffuse
-                                DynamicBinding {
-                                    bind_group: 1,
-                                    binding: 1,
-                                },
-                                // WaterCaustics_highlight
-                                DynamicBinding {
-                                    bind_group: 1,
-                                    binding: 2,
-                                },
-                                // WaterCaustics_dt
-                                DynamicBinding {
-                                    bind_group: 1,
-                                    binding: 3,
-                                },
-                            ],
-                            ..Default::default()
-                        },
-                    ),
-                ]),
+                render_pipelines: RenderPipelines::from_pipelines(vec![RenderPipeline::new(
+                    pipeline_handle,
+                )]),
                 transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
-                draw: Draw {
-                    is_transparent: true,
-                    ..Default::default()
-                },
                 ..Default::default()
             })
             .with(material);

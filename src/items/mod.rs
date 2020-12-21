@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 
 /// Tag component identifying an item
-pub struct Item;
+// pub struct Item;
 
 pub struct IsaacItems;
 
@@ -17,7 +17,7 @@ pub struct PickupItem {
 
 impl IsaacItems {
     fn item_pickup(
-        mut command: Commands,
+        command: &mut Commands,
         mut reader: Local<EventReader<PickupItem>>,
         pickup_events: Res<Events<PickupItem>>,
     ) {
@@ -30,6 +30,6 @@ impl IsaacItems {
 impl Plugin for IsaacItems {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<PickupItem>()
-            .add_systems(vec![Self::item_pickup.system()]);
+            .add_system(Self::item_pickup.system());
     }
 }

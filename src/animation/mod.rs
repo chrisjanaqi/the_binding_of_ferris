@@ -10,13 +10,41 @@ use bevy::prelude::*;
 
 pub const ZOOM: f32 = 6.0;
 
-#[derive(Debug, Default)]
+#[derive(Bundle)]
+pub struct AnimationBundle {
+    pub animation: Animation,
+    pub anim_timer: AnimTimer,
+}
+
+#[derive(Debug)]
 pub struct AnimTimer(pub Timer);
 
 impl AnimTimer {
-    fn reset(&mut self) {
-        self.0.finished = true;
-        self.0.just_finished = true;
+    pub fn new(fps: f32) -> Self {
+        let duration = 1.0 / fps;
+        let mut timer = Timer::from_seconds(duration, true);
+        timer.tick(duration);
+        Self(timer)
+    }
+
+    pub fn reset(&mut self) {
+        self.0.reset();
+        self.0.tick(self.0.duration());
+    }
+
+    pub fn tick(&mut self, dt: f32) -> &Self {
+        self.0.tick(dt);
+        self
+    }
+
+    pub fn available(&self) -> bool {
+        self.0.finished()
+    }
+}
+
+impl Default for AnimTimer {
+    fn default() -> Self {
+        Self(Timer::from_seconds(0.1, true))
     }
 }
 
@@ -29,14 +57,13 @@ pub struct IsaacAnimations;
 impl IsaacAnimations {
     fn animation_update(
         time: Res<Time>,
-        mut timer: ResMut<AnimTimer>,
-        mut query: Query<(&mut TextureAtlasSprite, &mut Animation)>,
+        mut query: Query<(&mut TextureAtlasSprite, &mut Animation, &mut AnimTimer)>,
     ) {
-        timer.0.tick(time.delta_seconds);
-        for (mut sprite, mut animation) in query.iter_mut() {
-            if timer.0.finished {
+        for (mut sprite, mut animation, mut timer) in query.iter_mut() {
+            if timer.available() {
                 sprite.index = animation.next_frame();
             }
+            timer.tick(time.delta_seconds());
         }
     }
 
@@ -44,21 +71,20 @@ impl IsaacAnimations {
         mut reader: Local<EventReader<PlayerAnimEvent>>,
         actions: ChangedRes<Actions<Action>>,
         anim_events: Res<Events<PlayerAnimEvent>>,
-        mut timer: ResMut<AnimTimer>,
-        mut query: Query<With<Player, (&mut Transform, &mut Animation)>>,
+        mut query: Query<(&mut Transform, &mut Animation, &mut AnimTimer), With<Player>>,
     ) {
-        for (mut transform, mut animation) in query.iter_mut() {
+        for (mut transform, mut animation, mut timer) in query.iter_mut() {
             if let Some(Action::Shoot(direction)) = actions.get(Action::Shoot) {
-                if direction.x() > f32::EPSILON {
-                    *transform.scale.x_mut() = ZOOM;
-                } else if direction.x() < -f32::EPSILON {
-                    *transform.scale.x_mut() = -ZOOM;
+                if direction.x > f32::EPSILON {
+                    transform.scale.x = ZOOM;
+                } else if direction.x < -f32::EPSILON {
+                    transform.scale.x = -ZOOM;
                 }
             } else if let Some(Action::Move(direction)) = actions.get(Action::Move) {
-                if direction.x() > f32::EPSILON {
-                    *transform.scale.x_mut() = ZOOM;
-                } else if direction.x() < -f32::EPSILON {
-                    *transform.scale.x_mut() = -ZOOM;
+                if direction.x > f32::EPSILON {
+                    transform.scale.x = ZOOM;
+                } else if direction.x < -f32::EPSILON {
+                    transform.scale.x = -ZOOM;
                 }
             }
             for player_anim in reader.iter(&anim_events) {
@@ -71,8 +97,7 @@ impl IsaacAnimations {
 
 impl Plugin for IsaacAnimations {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_resource(AnimTimer(Timer::from_seconds(0.1, true)))
-            .add_event::<PlayerAnimEvent>()
+        app.add_event::<PlayerAnimEvent>()
             .add_system(Self::player_animation.system())
             .add_system(Self::animation_update.system());
     }
