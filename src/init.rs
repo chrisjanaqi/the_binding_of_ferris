@@ -17,6 +17,8 @@ impl IsaacInit {
         mut atlases: ResMut<Assets<TextureAtlas>>,
         mut textures: ResMut<Assets<ColorMaterial>>,
     ) {
+        asset_server.watch_for_changes().unwrap();
+
         let player_handle = asset_server.load("scorpion.png");
         let tear_handle = asset_server.load("tear.png");
         let ground_handle = asset_server.load("ground.png");
@@ -43,7 +45,7 @@ impl IsaacInit {
         command
             .spawn(PlayerBundle {
                 player: Player,
-                weapon: TearWeapon::new(0.5, 700.0, 1.2),
+                weapon: TearWeapon::new(0.5, 700.0, 3.0),
                 velocity: Default::default(),
                 movement: Movement {
                     direction: None,

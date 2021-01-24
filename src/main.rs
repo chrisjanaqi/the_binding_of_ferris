@@ -16,12 +16,10 @@ use crate::input::IsaacInputs;
 use crate::items::IsaacItems;
 use crate::physic::IsaacPhysic;
 use crate::player::IsaacPlayer;
-// use crate::render::IsaacRendering;
 use crate::ui::IsaacUI;
 use crate::weapon::IsaacWeapons;
 
-use bevy::input::system::exit_on_esc_system;
-use bevy::prelude::*;
+use bevy::{input::system::exit_on_esc_system, prelude::*};
 
 trait FromRon: Sized {
     fn from_file(path: &str) -> Result<Self, ron::Error>;
@@ -40,7 +38,7 @@ where
 fn main() {
     App::build()
         .add_resource(WindowDescriptor {
-            title: "Isaac's Tears".to_string(),
+            title: "Ferris's Tears".to_string(),
             vsync: false,
             ..Default::default()
         })
@@ -53,7 +51,6 @@ fn main() {
         .add_plugin(IsaacPhysic)
         .add_plugin(IsaacPlayer)
         .add_plugin(IsaacWeapons)
-        // .add_plugin(IsaacRendering)
         .add_plugin(IsaacItems)
         .add_plugin(IsaacUI)
         .add_system(exit_on_esc_system.system())

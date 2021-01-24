@@ -2,17 +2,20 @@
 layout(location = 0) in vec4 position;
 layout(location = 0) out vec4 o_Target;
 
-layout(set = 1, binding = 1) uniform WaterCaustics_diffuse {
-    vec4 diffuse;
-};
+// layout(set = 2, binding = 0) uniform WaterCaustics_diffuse {
+//     vec4 diffuse;
+// };
 
-layout(set = 1, binding = 2) uniform WaterCaustics_highlight {
-    vec4 highlight;
-};
+// layout(set = 2, binding = 1) uniform WaterCaustics_highlight {
+//     vec4 highlight;
+// };
 
-layout(set = 1, binding = 3) uniform WaterCaustics_time {
+layout(set = 2, binding = 0) uniform WaterCaustics_time {
     float time;
 };
+
+const vec4 diffuse = vec4(0.13, 0.59, 0.95, 1.0);
+const vec4 highlight = vec4(1.0);
 
 const mat2 myt = mat2(.12121212, .13131313, -.13131313, .12121212);
 const vec2 mys = vec2(1e4, 1e6);
@@ -65,7 +68,7 @@ void main() {
     vec4 pos = position / position.w;
     vec4 c1 = caustics(zoom1 * pos.xy, speed1 * time);
     vec4 c2 = caustics(zoom2 * pos.xy, speed2 * time);
-    // vec4 c3 = caustics(zoom2 * pos.yx, speed1 * time);
+    // vec4 c3 = caustics(zoom2 * pos.yx, speed1.yx * time);
     vec4 c = min(c1, c2);
 
     vec4 color = mix(0.1 * diffuse, highlight, c);

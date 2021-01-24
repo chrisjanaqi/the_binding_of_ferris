@@ -11,13 +11,15 @@ pub struct Movement {
     pub damping: f32,
 }
 
+pub const STAGE: &str = "fixed_update";
+
 pub struct IsaacPhysic;
 
 impl IsaacPhysic {
-    const FIXED_TIMESTEP: f64 = 0.01;
+    pub const FIXED_TIMESTEP: f64 = 0.016;
 
-    fn moving(time: Res<Time>, mut query: Query<(&Movement, &mut Velocity)>) {
-        let dt = time.delta_seconds();
+    fn moving(mut query: Query<(&Movement, &mut Velocity)>) {
+        let dt = Self::FIXED_TIMESTEP as f32;
         for (movement, mut velocity) in query.iter_mut() {
             let is_moving = movement.direction.is_some();
             let target = movement.speed * movement.direction.unwrap_or_default();
@@ -51,9 +53,16 @@ impl IsaacPhysic {
 
 impl Plugin for IsaacPhysic {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system(Self::moving.system()).add_stage_after(
+        app.add_stage_after(
             stage::UPDATE,
-            "fixed_update",
+            STAGE,
+            SystemStage::parallel()
+                .with_run_criteria(FixedTimestep::step(Self::FIXED_TIMESTEP))
+                .with_system(Self::moving.system()),
+        )
+        .add_stage_after(
+            STAGE,
+            "physics_integration",
             SystemStage::parallel()
                 .with_run_criteria(FixedTimestep::step(Self::FIXED_TIMESTEP))
                 .with_system(Self::physics.system()),
