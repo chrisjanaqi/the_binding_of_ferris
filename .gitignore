@@ -1,9 +1,11 @@
 .idea
-target
-*.kra
 .cargo
-key_bindings.ron
-*~
+target
+
 assets/ground_small.png
+*.kra
+*~
 assets/*.tmx
 assets/*.tsx
+
+key_bindings.ron

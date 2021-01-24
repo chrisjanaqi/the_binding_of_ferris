@@ -1,11 +1,11 @@
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 
-pub struct IsaacUI;
+pub struct UIPlugin;
 
 struct FpsText;
 
-impl IsaacUI {
+impl UIPlugin {
     fn setup(commands: &mut Commands, asset_server: Res<AssetServer>) {
         commands
             .spawn(CameraUiBundle::default())
@@ -51,26 +51,12 @@ impl IsaacUI {
             }
         }
     }
-
-    fn fps_console(mut timer: Local<Timer>, time: Res<Time>, diagnostics: Res<Diagnostics>) {
-        timer.set_duration(1.0);
-        timer.set_repeating(true);
-        if timer.tick(time.delta_seconds()).just_finished() {
-            if let Some(fps) = diagnostics
-                .get(FrameTimeDiagnosticsPlugin::FPS)
-                .and_then(|diag| diag.average())
-            {
-                println!("{:.0} fps", fps);
-            }
-        }
-    }
 }
 
-impl Plugin for IsaacUI {
+impl Plugin for UIPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_plugin(FrameTimeDiagnosticsPlugin::default())
             .add_startup_system(Self::setup.system())
-            .add_system(Self::fps_console.system())
             .add_system(Self::fps_ui.system());
     }
 }

@@ -1,10 +1,12 @@
+mod default;
+
 use crate::animation::*;
-use crate::input::*;
 use crate::physic::*;
-use crate::player::*;
 use crate::render::Materials;
 
-use bevy::prelude::*;
+use bevy::{app::PluginGroupBuilder, prelude::*};
+
+pub use default::*;
 
 #[derive(Debug, Default, Copy, Clone)]
 pub struct TearTag;
@@ -16,75 +18,11 @@ pub struct SpawnProjectileEvent {
     pub lifetime: f32,
 }
 
-#[derive(Bundle)]
-struct TearProjectileBundle {
-    pub velocity: Velocity,
-    pub lifetime: Timer,
-    pub tag: TearTag,
-}
-
 pub struct DespawnProjectileEvent(pub Entity);
 
-#[derive(Default)]
-pub struct TearWeapon {
-    cooldown: Timer,
-    speed: f32,
-    lifetime: f32,
-}
+pub struct WeaponPlugins;
 
-impl TearWeapon {
-    pub fn new(cooldown: f32, speed: f32, lifetime: f32) -> Self {
-        let mut timer = Timer::from_seconds(cooldown, false);
-        timer.tick(cooldown);
-
-        Self {
-            cooldown: timer,
-            speed,
-            lifetime,
-        }
-    }
-
-    pub fn available(&mut self) -> bool {
-        self.cooldown.finished()
-    }
-
-    pub fn reset(&mut self) {
-        self.cooldown.reset();
-    }
-
-    pub fn tick(&mut self, dt: f32) {
-        self.cooldown.tick(dt);
-    }
-
-    fn update_weapon(
-        time: Res<Time>,
-        actions: Res<Actions<Action>>,
-        mut shoot_events: ResMut<Events<SpawnProjectileEvent>>,
-        mut animation_events: ResMut<Events<PlayerAnimEvent>>,
-        mut query: Query<(Entity, &mut TearWeapon), With<Player>>,
-    ) {
-        use Action::*;
-
-        for (e, mut weapon) in query.iter_mut() {
-            weapon.tick(time.delta_seconds());
-
-            if let Some(Shoot(direction)) = actions.get(Shoot) {
-                if weapon.available() {
-                    weapon.reset();
-                    shoot_events.send(SpawnProjectileEvent {
-                        parent: e,
-                        direction: direction.normalize(),
-                        speed: weapon.speed,
-                        lifetime: weapon.lifetime,
-                    });
-                    animation_events.send(PlayerAnimEvent {
-                        state: AnimState::Attack(AnimOrientation::Side),
-                    });
-                }
-            }
-        }
-    }
-
+impl WeaponPlugins {
     fn update_projectile(
         time: Res<Time>,
         mut projectile_events: ResMut<Events<DespawnProjectileEvent>>,
@@ -151,15 +89,18 @@ impl TearWeapon {
     }
 }
 
-pub struct IsaacWeapons;
-
-impl Plugin for IsaacWeapons {
+impl Plugin for WeaponPlugins {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<SpawnProjectileEvent>()
             .add_event::<DespawnProjectileEvent>()
-            .add_system(TearWeapon::update_weapon.system())
-            .add_system(TearWeapon::update_projectile.system())
-            .add_system(TearWeapon::spawn.system())
-            .add_system(TearWeapon::despawn.system());
+            .add_system(Self::update_projectile.system())
+            .add_system(Self::spawn.system())
+            .add_system(Self::despawn.system());
+    }
+}
+
+impl PluginGroup for WeaponPlugins {
+    fn build(&mut self, group: &mut PluginGroupBuilder) {
+        group.add(Self).add(TearWeapon::default());
     }
 }

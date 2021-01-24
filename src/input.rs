@@ -118,9 +118,9 @@ impl Default for KeyBindings {
     }
 }
 
-pub struct IsaacInputs;
+pub struct InputPlugin;
 
-impl IsaacInputs {
+impl InputPlugin {
     // const STAGE: &'static str = "isaac_input";
 
     fn keyboard(
@@ -173,7 +173,7 @@ impl IsaacInputs {
     }
 }
 
-impl Plugin for IsaacInputs {
+impl Plugin for InputPlugin {
     fn build(&self, app: &mut AppBuilder) {
         let bindings = KeyBindings::from_file("key_bindings.ron")
             .map_err(|e| {
@@ -184,6 +184,6 @@ impl Plugin for IsaacInputs {
         app.add_resource(bindings)
             .init_resource::<Actions<Action>>()
             //.add_stage(IsaacInputs::STAGE)
-            .add_system(IsaacInputs::keyboard.system());
+            .add_system(InputPlugin::keyboard.system());
     }
 }

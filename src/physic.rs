@@ -12,14 +12,13 @@ pub struct Movement {
 }
 
 pub const STAGE: &str = "fixed_update";
+pub const TIMESTEP: f64 = 0.016;
 
-pub struct IsaacPhysic;
+pub struct PhysicPlugin;
 
-impl IsaacPhysic {
-    pub const FIXED_TIMESTEP: f64 = 0.016;
-
+impl PhysicPlugin {
     fn moving(mut query: Query<(&Movement, &mut Velocity)>) {
-        let dt = Self::FIXED_TIMESTEP as f32;
+        let dt = TIMESTEP as f32;
         for (movement, mut velocity) in query.iter_mut() {
             let is_moving = movement.direction.is_some();
             let target = movement.speed * movement.direction.unwrap_or_default();
@@ -42,7 +41,7 @@ impl IsaacPhysic {
     }
 
     fn physics(mut query: Query<(Option<&Velocity>, &mut Transform)>) {
-        let dt = Self::FIXED_TIMESTEP as f32;
+        let dt = TIMESTEP as f32;
         for (velocity, mut transform) in query.iter_mut() {
             if let Some(Velocity(speed)) = velocity {
                 transform.translation += speed.extend(0.0) * dt;
@@ -51,20 +50,20 @@ impl IsaacPhysic {
     }
 }
 
-impl Plugin for IsaacPhysic {
+impl Plugin for PhysicPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_stage_after(
             stage::UPDATE,
             STAGE,
             SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(Self::FIXED_TIMESTEP))
+                .with_run_criteria(FixedTimestep::step(TIMESTEP))
                 .with_system(Self::moving.system()),
         )
         .add_stage_after(
             STAGE,
             "physics_integration",
             SystemStage::parallel()
-                .with_run_criteria(FixedTimestep::step(Self::FIXED_TIMESTEP))
+                .with_run_criteria(FixedTimestep::step(TIMESTEP))
                 .with_system(Self::physics.system()),
         );
     }

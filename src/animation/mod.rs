@@ -52,9 +52,9 @@ pub struct PlayerAnimEvent {
     pub state: AnimState,
 }
 
-pub struct IsaacAnimations;
+pub struct AnimationPlugin;
 
-impl IsaacAnimations {
+impl AnimationPlugin {
     fn animation_update(
         time: Res<Time>,
         mut query: Query<(&mut TextureAtlasSprite, &mut Animation, &mut AnimTimer)>,
@@ -87,6 +87,7 @@ impl IsaacAnimations {
                     transform.scale.x = -ZOOM;
                 }
             }
+
             for player_anim in reader.iter(&anim_events) {
                 animation.set_state(player_anim.state);
                 timer.reset();
@@ -95,7 +96,7 @@ impl IsaacAnimations {
     }
 }
 
-impl Plugin for IsaacAnimations {
+impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<PlayerAnimEvent>()
             .add_system(Self::player_animation.system())

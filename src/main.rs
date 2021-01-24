@@ -7,17 +7,17 @@ mod physic;
 mod player;
 mod render;
 mod ui;
-mod weapon;
+mod weapons;
 
-use crate::animation::IsaacAnimations;
-use crate::attribute::IsaacAttributes;
-use crate::init::IsaacInit;
-use crate::input::IsaacInputs;
-use crate::items::IsaacItems;
-use crate::physic::IsaacPhysic;
-use crate::player::IsaacPlayer;
-use crate::ui::IsaacUI;
-use crate::weapon::IsaacWeapons;
+use crate::animation::AnimationPlugin;
+use crate::attribute::AttributesPlugin;
+use crate::init::InitPlugin;
+use crate::input::InputPlugin;
+use crate::items::ItemPlugins;
+use crate::physic::PhysicPlugin;
+use crate::player::PlayerPlugin;
+use crate::ui::UIPlugin;
+use crate::weapons::WeaponPlugins;
 
 use bevy::{input::system::exit_on_esc_system, prelude::*};
 
@@ -44,15 +44,15 @@ fn main() {
         })
         .add_resource(ClearColor(Color::rgb(0.16, 0.16, 0.16)))
         .add_plugins(DefaultPlugins)
-        .add_plugin(IsaacInit)
-        .add_plugin(IsaacAttributes)
-        .add_plugin(IsaacInputs)
-        .add_plugin(IsaacAnimations)
-        .add_plugin(IsaacPhysic)
-        .add_plugin(IsaacPlayer)
-        .add_plugin(IsaacWeapons)
-        .add_plugin(IsaacItems)
-        .add_plugin(IsaacUI)
+        .add_plugin(InitPlugin)
+        .add_plugin(AttributesPlugin)
+        .add_plugin(InputPlugin)
+        .add_plugin(AnimationPlugin)
+        .add_plugin(PhysicPlugin)
+        .add_plugin(PlayerPlugin)
+        .add_plugins(WeaponPlugins)
+        .add_plugins(ItemPlugins)
+        .add_plugin(UIPlugin)
         .add_system(exit_on_esc_system.system())
         .run();
 }

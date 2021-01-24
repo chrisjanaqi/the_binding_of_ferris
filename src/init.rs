@@ -1,14 +1,14 @@
-use crate::animation::*;
 use crate::physic::*;
 use crate::player::*;
 use crate::render::Materials;
-use crate::weapon::TearWeapon;
+use crate::weapons::TearWeapon;
 use crate::FromRon;
+use crate::{animation::*, items};
 use bevy::prelude::*;
 
-pub struct IsaacInit;
+pub struct InitPlugin;
 
-impl IsaacInit {
+impl InitPlugin {
     const STAGE: &'static str = "game_setup";
 
     fn texture_loading(
@@ -62,7 +62,8 @@ impl IsaacInit {
             .with_bundle(AnimationBundle {
                 anim_timer: AnimTimer::new(10.0),
                 animation,
-            });
+            })
+            .with(items::TinyPlanet);
     }
 
     fn ground_spawn(command: &mut Commands, materials: Res<Materials>) {
@@ -74,7 +75,7 @@ impl IsaacInit {
     }
 }
 
-impl Plugin for IsaacInit {
+impl Plugin for InitPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_startup_system(Self::camera_spawn.system())
             .add_startup_system(Self::texture_loading.system())

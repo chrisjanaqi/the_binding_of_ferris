@@ -28,7 +28,7 @@ pub struct AttributeChange<A: Attribute> {
     pub attribute: A,
 }
 
-pub struct IsaacAttributes;
+pub struct AttributesPlugin;
 
 #[derive(Bundle)]
 pub struct PlayerAttributes {
@@ -40,7 +40,7 @@ pub struct PlayerAttributes {
     pub movement_speed: MovementSpeed,
 }
 
-impl IsaacAttributes {
+impl AttributesPlugin {
     fn update<A: Attribute>(
         mut event_reader: Local<EventReader<AttributeChange<A>>>,
         events: Res<Events<AttributeChange<A>>>,
@@ -60,7 +60,7 @@ impl IsaacAttributes {
     }
 }
 
-impl Plugin for IsaacAttributes {
+impl Plugin for AttributesPlugin {
     fn build(&self, app: &mut AppBuilder) {
         self.add_attribute::<Health>(app)
             .add_attribute::<Damage>(app)
